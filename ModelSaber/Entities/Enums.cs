@@ -10,10 +10,4 @@ namespace ModelSaber.Entities
         Name,
         Author
     }
-
-    public enum SortDirection
-    {
-        Ascending,
-        Descending
-    }
 }

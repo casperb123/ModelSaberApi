@@ -1,8 +1,16 @@
-﻿using ModelSaber.Entities;
+﻿using BeatManager.Entities.ModelSaber;
+using ModelSaber.Entities;
 using ModelSaber.Events;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Security;
+using System.Reflection;
+using System.Threading.Tasks;
 
 namespace ModelSaber
 {
@@ -13,8 +21,8 @@ namespace ModelSaber
         private readonly string downloadPath;
         private readonly string[] excludedCharacters;
 
-        public string CustomSabersPath { get; set; }
-        public string CustomAvatarsPath { get; set; }
+        public string SabersPath { get; set; }
+        public string AvatarsPath { get; set; }
         public List<OnlineModel> Downloading { get; set; }
 
         public event EventHandler<DownloadStartedEventArgs> DownloadStarted;
@@ -28,8 +36,8 @@ namespace ModelSaber
         {
             modelSaber = "https://modelsaber.com";
             modelSaberApi = $"{modelSaber}/api/v2/get.php";
-            CustomSabersPath = Path.Combine(beatSaberPath, "CustomSabers");
-            CustomAvatarsPath = Path.Combine(beatSaberPath, "CustomAvatars");
+            SabersPath = Path.Combine(beatSaberPath, "CustomSabers");
+            AvatarsPath = Path.Combine(beatSaberPath, "CustomAvatars");
             Downloading = new List<OnlineModel>();
 
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -51,6 +59,122 @@ namespace ModelSaber
             };
         }
 
+        public async Task<OnlineModels> GetOnlineSaberModels(Sort sort, bool descending, List<Filter> filters, int page = 0)
+        {
+            try
+            {
+                using (WebClient webClient = new WebClient())
+                {
+                    string projectName = Assembly.GetEntryAssembly().GetName().Name;
+                    webClient.Headers.Add(HttpRequestHeader.UserAgent, projectName);
+                    int start = page * 10;
+                    int end = (page * 10) + 9;
+                    string sortDirection = descending ? "desc" : "asc";
+                    string filtersText = string.Join(",", filters.Select(x => $"{x.Type.ToString().ToLower()}:{x.Text}"));
+                    string json = null;
 
+                    if (filters is null || filters.Count == 0)
+                        json = await webClient.DownloadStringTaskAsync($"{modelSaberApi}?sort={sort.ToString().ToLower()}&sortDirection={sortDirection}");
+                    else
+                        json = await webClient.DownloadStringTaskAsync($"{modelSaberApi}?sort={sort.ToString().ToLower()}&sortDirection={sortDirection}&filter={filtersText}");
+
+                    Dictionary<string, JToken> jsonDictionary = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(json);
+                    OnlineModels onlineModels = new OnlineModels();
+
+                    string[] sabersDownloaded = Directory.GetFiles(SabersPath, "*.saber");
+
+                    for (int i = 0; i < onlineModels.Models.Count; i++)
+                    {
+                        if (i > 0 && i % 10 == 0)
+                            onlineModels.LastPage++;
+                    }
+
+                    foreach (var jsonToken in jsonDictionary)
+                    {
+                        OnlineModel onlineModel = JsonConvert.DeserializeObject<OnlineModel>(jsonToken.Value.ToString());
+                        string saberPath = sabersDownloaded.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == onlineModel.Name);
+
+                        if (string.IsNullOrEmpty(saberPath))
+                        {
+                            if (Downloading.Any(x => x.Id == onlineModel.Id))
+                                onlineModel.IsDownloading = true;
+                        }
+                        else
+                        {
+                            onlineModel.IsDownloaded = true;
+                            onlineModel.SaberPath = saberPath;
+                        }
+
+                        onlineModels.Models.Add(onlineModel);
+                    }
+
+                    return RefreshOnlinePages(onlineModels);
+                }
+            }
+            catch (WebException e)
+            {
+                throw new WebException("Can't connect to Model Saber", e.InnerException);
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
+
+        public OnlineModels RefreshOnlinePages(OnlineModels onlineModels)
+        {
+            OnlineModels newOnlineModels = new OnlineModels(onlineModels);
+            int lastPage = 0;
+
+            foreach (OnlineModel onlineModel in newOnlineModels.Models)
+            {
+                int index = newOnlineModels.Models.IndexOf(onlineModel);
+                if (index > 0 && index % 10 == 0)
+                    lastPage++;
+
+                onlineModel.Page = lastPage;
+            }
+
+            newOnlineModels.LastPage = lastPage;
+            if (lastPage == 0)
+            {
+                newOnlineModels.NextPage = null;
+                newOnlineModels.PrevPage = null;
+            }
+            else
+            {
+                if (newOnlineModels.NextPage is null && newOnlineModels.PrevPage is null)
+                {
+                    if (lastPage >= 1)
+                        newOnlineModels.NextPage = 1;
+                }
+                else
+                {
+                    if (newOnlineModels.NextPage is null)
+                    {
+                        if (newOnlineModels.PrevPage < lastPage)
+                        {
+                            if (newOnlineModels.PrevPage + 2 <= lastPage)
+                                newOnlineModels.NextPage = newOnlineModels.PrevPage + 2;
+                            else
+                                newOnlineModels.PrevPage = lastPage - 1;
+                        }
+                        else
+                            newOnlineModels.PrevPage = lastPage - 1;
+                    }
+                    else
+                    {
+                        if (newOnlineModels.NextPage > lastPage)
+                        {
+                            newOnlineModels.NextPage = null;
+                            if (lastPage - 1 >= 0)
+                                newOnlineModels.PrevPage = lastPage - 1;
+                        }
+                    }
+                }
+            }
+
+            return newOnlineModels;
+        }
     }
 }

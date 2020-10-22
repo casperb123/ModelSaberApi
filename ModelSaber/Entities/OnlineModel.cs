@@ -68,6 +68,7 @@ namespace ModelSaber.Entities
         [JsonProperty("date")]
         public string Date { get; set; }
 
+        [JsonIgnore]
         public string BaseUrl
         {
             get
@@ -79,20 +80,28 @@ namespace ModelSaber.Entities
             }
         }
 
+        [JsonIgnore]
         public string RealThumbnail
         {
             get { return $"{BaseUrl}/{Thumbnail}"; }
         }
 
+        [JsonIgnore]
         public bool StatusBool
         {
             get { return Status == "approved" ? true : false; }
         }
 
+        [JsonIgnore]
         public bool IsDownloading { get; set; }
 
+        [JsonIgnore]
         public bool IsDownloaded { get; set; }
 
-        public string FolderPath { get; set; }
+        [JsonIgnore]
+        public string SaberPath { get; set; }
+
+        [JsonIgnore]
+        public int Page { get; set; }
     }
 }
