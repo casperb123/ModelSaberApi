@@ -11,6 +11,8 @@ namespace ModelSaber.Entities
     public class OnlineModels : INotifyPropertyChanged
     {
         private ObservableCollection<OnlineModel> models;
+        private int startIndex;
+        private int endIndex;
         private int? prevPage;
         private int? nextPage;
 
@@ -25,9 +27,6 @@ namespace ModelSaber.Entities
         }
 
         [JsonIgnore]
-        public int LastPage { get; set; }
-
-        [JsonIgnore]
         public int? PrevPage
         {
             get { return prevPage; }
@@ -35,6 +34,7 @@ namespace ModelSaber.Entities
             {
                 prevPage = value;
                 OnPropertyChanged(nameof(PrevPage));
+                OnPropertyChanged(nameof(CurrentPageReal));
             }
         }
 
@@ -45,6 +45,7 @@ namespace ModelSaber.Entities
             set
             {
                 nextPage = value;
+                OnPropertyChanged(nameof(NextPage));
                 OnPropertyChanged(nameof(CurrentPageReal));
             }
         }
@@ -68,9 +69,25 @@ namespace ModelSaber.Entities
         }
 
         [JsonIgnore]
-        public int LastPageReal
+        public int StartIndex
         {
-            get { return LastPage + 1; }
+            get { return startIndex; }
+            set
+            {
+                startIndex = value;
+                OnPropertyChanged(nameof(StartIndex));
+            }
+        }
+
+        [JsonIgnore]
+        public int EndIndex
+        {
+            get { return endIndex; }
+            set
+            {
+                endIndex = value;
+                OnPropertyChanged(nameof(EndIndex));
+            }
         }
 
         public OnlineModels()
@@ -81,9 +98,10 @@ namespace ModelSaber.Entities
         public OnlineModels(OnlineModels onlineModels)
         {
             Models = new ObservableCollection<OnlineModel>(onlineModels.Models);
-            LastPage = onlineModels.LastPage;
             PrevPage = onlineModels.PrevPage;
             NextPage = onlineModels.NextPage;
+            StartIndex = onlineModels.StartIndex;
+            EndIndex = onlineModels.EndIndex;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

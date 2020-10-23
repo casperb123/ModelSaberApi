@@ -69,21 +69,9 @@ namespace ModelSaber.Entities
         public string Date { get; set; }
 
         [JsonIgnore]
-        public string BaseUrl
-        {
-            get
-            {
-                int lastSlash = Download.LastIndexOf("/");
-                int endIndex = Download.Length - (Download.Length - lastSlash);
-
-                return Download.Substring(0, endIndex);
-            }
-        }
-
-        [JsonIgnore]
         public string RealThumbnail
         {
-            get { return $"{BaseUrl}/{Thumbnail}"; }
+            get { return $"https://modelsaber.com/files/saber/{Id}/{Thumbnail}"; }
         }
 
         [JsonIgnore]
@@ -100,8 +88,5 @@ namespace ModelSaber.Entities
 
         [JsonIgnore]
         public string SaberPath { get; set; }
-
-        [JsonIgnore]
-        public int Page { get; set; }
     }
 }
