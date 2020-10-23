@@ -1,5 +1,4 @@
-﻿using BeatManager.Entities.ModelSaber;
-using ModelSaber.Entities;
+﻿using ModelSaber.Entities;
 using ModelSaber.Events;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -8,7 +7,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Security;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -59,7 +57,7 @@ namespace ModelSaber
             };
         }
 
-        public async Task<OnlineModels> GetOnlineSaberModels(Sort sort, bool descending, List<Filter> filters, int page = 0)
+        public async Task<OnlineModels> GetOnlineSabers(Sort sort, bool descending, List<Filter> filters, int page = 0)
         {
             try
             {
@@ -74,9 +72,9 @@ namespace ModelSaber
                     string json = null;
 
                     if (filters is null || filters.Count == 0)
-                        json = await webClient.DownloadStringTaskAsync($"{modelSaberApi}?sort={sort.ToString().ToLower()}&sortDirection={sortDirection}");
+                        json = await webClient.DownloadStringTaskAsync($"{modelSaberApi}?type=saber&sort={sort.ToString().ToLower()}&sortDirection={sortDirection}");
                     else
-                        json = await webClient.DownloadStringTaskAsync($"{modelSaberApi}?sort={sort.ToString().ToLower()}&sortDirection={sortDirection}&filter={filtersText}");
+                        json = await webClient.DownloadStringTaskAsync($"{modelSaberApi}?type=saber&sort={sort.ToString().ToLower()}&sortDirection={sortDirection}&filter={filtersText}");
 
                     Dictionary<string, JToken> jsonDictionary = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(json);
                     OnlineModels onlineModels = new OnlineModels();
@@ -113,7 +111,7 @@ namespace ModelSaber
             }
             catch (WebException e)
             {
-                throw new WebException("Can't connect to Model Saber", e.InnerException);
+                throw new WebException("Can't connect to ModelSaber", e.InnerException);
             }
             catch (Exception)
             {
@@ -175,6 +173,40 @@ namespace ModelSaber
             }
 
             return newOnlineModels;
+        }
+
+        public void ChangeOnlinePage(OnlineModels onlineModels, int page)
+        {
+            if (page >= 0 && page <= onlineModels.LastPage)
+            {
+                if (page == 0)
+                    onlineModels.PrevPage = null;
+                else
+                    onlineModels.PrevPage = page - 1;
+
+                if (page == onlineModels.LastPage)
+                    onlineModels.NextPage = null;
+                else
+                    onlineModels.NextPage = page + 1;
+            }
+            else if (page <= 0)
+            {
+                page = 0;
+                onlineModels.PrevPage = null;
+                if (page + 1 <= onlineModels.LastPage)
+                    onlineModels.NextPage = page + 1;
+                else
+                    onlineModels.NextPage = null;
+            }
+            else if (page >= onlineModels.LastPage)
+            {
+                page = onlineModels.LastPage;
+                onlineModels.NextPage = null;
+                if (page - 1 >= 0)
+                    onlineModels.PrevPage = page - 1;
+                else
+                    onlineModels.PrevPage = null;
+            }
         }
     }
 }

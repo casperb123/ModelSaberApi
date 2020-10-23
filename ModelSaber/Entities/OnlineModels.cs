@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
@@ -9,10 +10,19 @@ namespace ModelSaber.Entities
 {
     public class OnlineModels : INotifyPropertyChanged
     {
+        private ObservableCollection<OnlineModel> models;
         private int? prevPage;
         private int? nextPage;
 
-        public List<OnlineModel> Models { get; set; }
+        public ObservableCollection<OnlineModel> Models
+        {
+            get { return models; }
+            set
+            {
+                models = value;
+                OnPropertyChanged(nameof(Models));
+            }
+        }
 
         [JsonIgnore]
         public int LastPage { get; set; }
@@ -65,12 +75,12 @@ namespace ModelSaber.Entities
 
         public OnlineModels()
         {
-            Models = new List<OnlineModel>();
+            Models = new ObservableCollection<OnlineModel>();
         }
 
         public OnlineModels(OnlineModels onlineModels)
         {
-            Models = new List<OnlineModel>(onlineModels.Models);
+            Models = new ObservableCollection<OnlineModel>(onlineModels.Models);
             LastPage = onlineModels.LastPage;
             PrevPage = onlineModels.PrevPage;
             NextPage = onlineModels.NextPage;
