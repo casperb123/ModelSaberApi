@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -91,7 +92,7 @@ namespace ModelSaber
                         else
                         {
                             onlineModel.IsDownloaded = true;
-                            onlineModel.SaberPath = saberPath;
+                            onlineModel.ModelPath = saberPath;
                         }
 
                         onlineModels.Models.Add(onlineModel);
@@ -198,6 +199,143 @@ namespace ModelSaber
                 else
                     onlineModels.PrevPage = null;
             }
+        }
+
+        private void ProgressChangedFire(OnlineModel model, DateTime startTime, DownloadProgressChangedEventArgs e)
+        {
+            string received = string.Format(CultureInfo.InvariantCulture, "{0:n0} kB", e.BytesReceived / 1000);
+            string toReceive = string.Format(CultureInfo.InvariantCulture, "{0:n0} kB", e.TotalBytesToReceive / 1000);
+
+            if (e.BytesReceived / 1000000 >= 1)
+                received = string.Format("{0:.#0} MB", Math.Round((decimal)e.BytesReceived / 1000000, 2));
+            if (e.TotalBytesToReceive / 1000000 >= 1)
+                toReceive = string.Format("{0:.#0} MB", Math.Round((decimal)e.TotalBytesToReceive / 1000000, 2));
+
+            TimeSpan timeSpent = DateTime.Now - startTime;
+            int secondsRemaining = (int)(timeSpent.TotalSeconds / e.ProgressPercentage * (100 - e.ProgressPercentage));
+            TimeSpan timeLeft = new TimeSpan(0, 0, secondsRemaining);
+            string timeLeftString = string.Empty;
+            string timeSpentString = string.Empty;
+
+            if (timeLeft.Hours > 0)
+                timeLeftString += string.Format("{0} hours", timeLeft.Hours);
+            if (timeLeft.Minutes > 0)
+                timeLeftString += string.IsNullOrWhiteSpace(timeLeftString) ? string.Format("{0} min", timeLeft.Minutes) : string.Format(" {0} min", timeLeft.Minutes);
+            if (timeLeft.Seconds >= 0)
+                timeLeftString += string.IsNullOrWhiteSpace(timeLeftString) ? string.Format("{0} sec", timeLeft.Seconds) : string.Format(" {0} sec", timeLeft.Seconds);
+
+            if (timeSpent.Hours > 0)
+                timeSpentString = string.Format("{0} hours", timeSpent.Hours);
+            if (timeSpent.Minutes > 0)
+                timeSpentString += string.IsNullOrWhiteSpace(timeSpentString) ? string.Format("{0} min", timeSpent.Minutes) : string.Format(" {0} min", timeSpent.Minutes);
+            if (timeSpent.Seconds >= 0)
+                timeSpentString += string.IsNullOrWhiteSpace(timeSpentString) ? string.Format("{0} sec", timeSpent.Seconds) : string.Format(" {0} sec", timeSpent.Seconds);
+
+            DownloadProgressed?.Invoke(this, new DownloadProgressedEventArgs(model, e.BytesReceived, e.TotalBytesToReceive, e.ProgressPercentage, timeLeftString, timeSpentString, received, toReceive));
+        }
+
+        public async Task<bool> DownloadModel(OnlineModel model, ModelType modelType)
+        {
+            string modelName = model.Name;
+
+            foreach (string character in excludedCharacters)
+                modelName = modelName.Replace(character, "");
+
+            string extension = null;
+            string filePath = null;
+            switch (modelType)
+            {
+                case ModelType.Saber:
+                    extension = ".saber";
+                    filePath = SabersPath;
+                    break;
+                case ModelType.Avatar:
+                    extension = ".avatar";
+                    filePath = AvatarsPath;
+                    break;
+                case ModelType.Platform:
+                    extension = ".plat";
+                    break;
+                case ModelType.Bloq:
+                    extension = ".bloq";
+                    break;
+                default:
+                    break;
+            }
+
+            string downloadFilePath = Path.Combine(downloadPath, $"{model.Id}{extension}");
+            string downloadString = model.Download;
+            string saberPath = Path.Combine(filePath, $"{model.Name}{extension}");
+            
+            if (File.Exists(saberPath))
+            {
+                DownloadFailed?.Invoke(this, new DownloadFailedEventArgs(model, new InvalidOperationException("The saber is already downloaded")));
+                return false;
+            }
+
+            try
+            {
+                using (WebClient webClient = new WebClient())
+                {
+                    string projectName = Assembly.GetEntryAssembly().GetName().Name;
+
+                    DateTime startTime = DateTime.Now;
+                    webClient.DownloadProgressChanged += (s, e) => ProgressChangedFire(model, startTime, e);
+                    webClient.Headers.Add(HttpRequestHeader.UserAgent, projectName);
+                    model.IsDownloading = true;
+                    Downloading.Add(model);
+
+                    DownloadStarted?.Invoke(this, new DownloadStartedEventArgs(model));
+                    await webClient.DownloadFileTaskAsync(new Uri(downloadString), downloadFilePath);
+
+                    model.ModelPath = saberPath;
+                    model.IsDownloading = false;
+                    model.IsDownloaded = true;
+                    OnlineModel downloadingModel = Downloading.FirstOrDefault(x => x.Id == model.Id);
+                    if (downloadingModel != null)
+                        Downloading.Remove(downloadingModel);
+
+                    DownloadCompleted?.Invoke(this, new DownloadCompletedEventArgs(model));
+                }
+
+                return true;
+            }
+            catch (WebException e)
+            {
+                if (File.Exists(downloadFilePath))
+                    File.Delete(downloadFilePath);
+
+                model.IsDownloading = false;
+                DownloadFailed?.Invoke(this, new DownloadFailedEventArgs(model, new WebException("Can't connect to ModelSaber", e.InnerException)));
+                return false;
+            }
+            catch (Exception e)
+            {
+                if (File.Exists(downloadFilePath))
+                    File.Delete(downloadFilePath);
+
+                model.IsDownloading = false;
+                DownloadFailed?.Invoke(this, new DownloadFailedEventArgs(model, e));
+                return false;
+            }
+        }
+
+        public void DeleteModel(OnlineModel model)
+        {
+            if (model.IsDownloaded)
+            {
+                if (File.Exists(model.ModelPath))
+                    File.Delete(model.ModelPath);
+
+                model.IsDownloaded = false;
+                OnlineModelDeleted?.Invoke(this, new OnlineModelDeletedEventArgs(model));
+            }
+        }
+
+        public void DeleteModels(List<OnlineModel> models)
+        {
+            foreach (OnlineModel model in models)
+                DeleteModel(model);
         }
     }
 }

@@ -9,12 +9,29 @@ namespace ModelSaber.Entities
     public class OnlineModel
     {
         private string bsaber;
+        private string type;
 
         [JsonProperty("tags")]
         public List<string> Tags { get; set; }
 
         [JsonProperty("type")]
-        public string Type { get; set; }
+        public string Type
+        {
+            get { return type; }
+            set
+            {
+                type = value;
+
+                if (value == "saber")
+                    ModelType = ModelType.Saber;
+                else if (value == "avatar")
+                    ModelType = ModelType.Avatar;
+                else if (value == "platform")
+                    ModelType = ModelType.Platform;
+                else if (value == "bloq")
+                    ModelType = ModelType.Bloq;
+            }
+        }
 
         [JsonProperty("name")]
         public string Name { get; set; }
@@ -81,13 +98,16 @@ namespace ModelSaber.Entities
         }
 
         [JsonIgnore]
+        public ModelType ModelType { get; set; }
+
+        [JsonIgnore]
         public bool IsDownloading { get; set; }
 
         [JsonIgnore]
         public bool IsDownloaded { get; set; }
 
         [JsonIgnore]
-        public string SaberPath { get; set; }
+        public string ModelPath { get; set; }
 
         [JsonIgnore]
         public int Page { get; set; }
