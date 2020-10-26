@@ -15,6 +15,7 @@ namespace ModelSaber.Entities
         private int endIndex;
         private int? prevPage;
         private int? nextPage;
+        private int lastPage;
 
         public ObservableCollection<OnlineModel> Models
         {
@@ -69,25 +70,20 @@ namespace ModelSaber.Entities
         }
 
         [JsonIgnore]
-        public int StartIndex
+        public int LastPage
         {
-            get { return startIndex; }
+            get { return lastPage; }
             set
             {
-                startIndex = value;
-                OnPropertyChanged(nameof(StartIndex));
+                lastPage = value;
+                OnPropertyChanged(nameof(LastPage));
             }
         }
 
         [JsonIgnore]
-        public int EndIndex
+        public int LastPageReal
         {
-            get { return endIndex; }
-            set
-            {
-                endIndex = value;
-                OnPropertyChanged(nameof(EndIndex));
-            }
+            get { return LastPage + 1; }
         }
 
         public OnlineModels()
@@ -98,10 +94,9 @@ namespace ModelSaber.Entities
         public OnlineModels(OnlineModels onlineModels)
         {
             Models = new ObservableCollection<OnlineModel>(onlineModels.Models);
+            LastPage = onlineModels.LastPage;
             PrevPage = onlineModels.PrevPage;
             NextPage = onlineModels.NextPage;
-            StartIndex = onlineModels.StartIndex;
-            EndIndex = onlineModels.EndIndex;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

@@ -88,5 +88,8 @@ namespace ModelSaber.Entities
 
         [JsonIgnore]
         public string SaberPath { get; set; }
+
+        [JsonIgnore]
+        public int Page { get; set; }
     }
 }

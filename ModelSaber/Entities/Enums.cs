@@ -2,9 +2,9 @@
 {
     public enum Sort
     {
-        Date,
         Name,
-        Author
+        Author,
+        Date
     }
 
     public enum FilterType

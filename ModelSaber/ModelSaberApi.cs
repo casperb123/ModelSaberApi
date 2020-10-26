@@ -65,23 +65,17 @@ namespace ModelSaber
                 {
                     string projectName = Assembly.GetEntryAssembly().GetName().Name;
                     webClient.Headers.Add(HttpRequestHeader.UserAgent, projectName);
-                    int startIndex = page * 10;
-                    int endIndex = startIndex + 10;
                     string sortDirection = descending ? "desc" : "asc";
                     string filtersText = string.Join(",", filters.Select(x => $"{x.Type.ToString().ToLower()}:{x.Text}"));
                     string json = null;
 
                     if (filters is null || filters.Count == 0)
-                        json = await webClient.DownloadStringTaskAsync($"{modelSaberApi}?type=saber&start={startIndex}&end={endIndex}&sort={sort.ToString().ToLower()}&sortDirection={sortDirection}");
+                        json = await webClient.DownloadStringTaskAsync($"{modelSaberApi}?type=saber&sort={sort.ToString().ToLower()}&sortDirection={sortDirection}");
                     else
-                        json = await webClient.DownloadStringTaskAsync($"{modelSaberApi}?type=saber&start={startIndex}&end={endIndex}&sort={sort.ToString().ToLower()}&sortDirection={sortDirection}&filter={filtersText}");
+                        json = await webClient.DownloadStringTaskAsync($"{modelSaberApi}?type=saber&sort={sort.ToString().ToLower()}&sortDirection={sortDirection}&filter={filtersText}");
 
                     Dictionary<string, JToken> jsonDictionary = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(json);
-                    OnlineModels onlineModels = new OnlineModels
-                    {
-                        StartIndex = startIndex,
-                        EndIndex = endIndex
-                    };
+                    OnlineModels onlineModels = new OnlineModels();
                     string[] sabersDownloaded = Directory.GetFiles(SabersPath, "*.saber");
 
                     foreach (var jsonToken in jsonDictionary)
@@ -119,103 +113,91 @@ namespace ModelSaber
         public OnlineModels RefreshOnlinePages(OnlineModels onlineModels)
         {
             OnlineModels newOnlineModels = new OnlineModels(onlineModels);
+            int lastPage = 0;
 
-            if (newOnlineModels.StartIndex == 0)
-                newOnlineModels.PrevPage = null;
-            else
-                newOnlineModels.PrevPage = (newOnlineModels.StartIndex / 10) - 1;
+            foreach (OnlineModel onlineModel in newOnlineModels.Models)
+            {
+                int index = newOnlineModels.Models.IndexOf(onlineModel);
+                if (index > 0 && index % 10 == 0)
+                    lastPage++;
 
-            if (newOnlineModels.Models.Count == 10)
-                newOnlineModels.NextPage = newOnlineModels.EndIndex / 10;
-            else
+                onlineModel.Page = lastPage;
+            }
+
+            newOnlineModels.LastPage = lastPage;
+            if (lastPage == 0)
+            {
                 newOnlineModels.NextPage = null;
-            //int lastPage = 0;
-
-            //foreach (OnlineModel onlineModel in newOnlineModels.Models)
-            //{
-            //    int index = newOnlineModels.Models.IndexOf(onlineModel);
-            //    if (index > 0 && index % 10 == 0)
-            //        lastPage++;
-
-            //    onlineModel.Page = lastPage;
-            //}
-
-            //newOnlineModels.LastPage = lastPage;
-            //if (lastPage == 0)
-            //{
-            //    newOnlineModels.NextPage = null;
-            //    newOnlineModels.PrevPage = null;
-            //}
-            //else
-            //{
-            //    if (newOnlineModels.NextPage is null && newOnlineModels.PrevPage is null)
-            //    {
-            //        if (lastPage >= 1)
-            //            newOnlineModels.NextPage = 1;
-            //    }
-            //    else
-            //    {
-            //        if (newOnlineModels.NextPage is null)
-            //        {
-            //            if (newOnlineModels.PrevPage < lastPage)
-            //            {
-            //                if (newOnlineModels.PrevPage + 2 <= lastPage)
-            //                    newOnlineModels.NextPage = newOnlineModels.PrevPage + 2;
-            //                else
-            //                    newOnlineModels.PrevPage = lastPage - 1;
-            //            }
-            //            else
-            //                newOnlineModels.PrevPage = lastPage - 1;
-            //        }
-            //        else
-            //        {
-            //            if (newOnlineModels.NextPage > lastPage)
-            //            {
-            //                newOnlineModels.NextPage = null;
-            //                if (lastPage - 1 >= 0)
-            //                    newOnlineModels.PrevPage = lastPage - 1;
-            //            }
-            //        }
-            //    }
-            //}
+                newOnlineModels.PrevPage = null;
+            }
+            else
+            {
+                if (newOnlineModels.NextPage is null && newOnlineModels.PrevPage is null)
+                {
+                    if (lastPage >= 1)
+                        newOnlineModels.NextPage = 1;
+                }
+                else
+                {
+                    if (newOnlineModels.NextPage is null)
+                    {
+                        if (newOnlineModels.PrevPage < lastPage)
+                        {
+                            if (newOnlineModels.PrevPage + 2 <= lastPage)
+                                newOnlineModels.NextPage = newOnlineModels.PrevPage + 2;
+                            else
+                                newOnlineModels.PrevPage = lastPage - 1;
+                        }
+                        else
+                            newOnlineModels.PrevPage = lastPage - 1;
+                    }
+                    else
+                    {
+                        if (newOnlineModels.NextPage > lastPage)
+                        {
+                            newOnlineModels.NextPage = null;
+                            if (lastPage - 1 >= 0)
+                                newOnlineModels.PrevPage = lastPage - 1;
+                        }
+                    }
+                }
+            }
 
             return newOnlineModels;
         }
 
         public void ChangeOnlinePage(OnlineModels onlineModels, int page)
         {
-            
+            if (page >= 0 && page <= onlineModels.LastPage)
+            {
+                if (page == 0)
+                    onlineModels.PrevPage = null;
+                else
+                    onlineModels.PrevPage = page - 1;
 
-            //if (page >= 0 && page <= onlineModels.LastPage)
-            //{
-            //    if (page == 0)
-            //        onlineModels.PrevPage = null;
-            //    else
-            //        onlineModels.PrevPage = page - 1;
-
-            //    if (page == onlineModels.LastPage)
-            //        onlineModels.NextPage = null;
-            //    else
-            //        onlineModels.NextPage = page + 1;
-            //}
-            //else if (page <= 0)
-            //{
-            //    page = 0;
-            //    onlineModels.PrevPage = null;
-            //    if (page + 1 <= onlineModels.LastPage)
-            //        onlineModels.NextPage = page + 1;
-            //    else
-            //        onlineModels.NextPage = null;
-            //}
-            //else if (page >= onlineModels.LastPage)
-            //{
-            //    page = onlineModels.LastPage;
-            //    onlineModels.NextPage = null;
-            //    if (page - 1 >= 0)
-            //        onlineModels.PrevPage = page - 1;
-            //    else
-            //        onlineModels.PrevPage = null;
-            //}
+                if (page == onlineModels.LastPage)
+                    onlineModels.NextPage = null;
+                else
+                    onlineModels.NextPage = page + 1;
+            }
+            else if (page <= 0)
+            {
+                page = 0;
+                onlineModels.PrevPage = null;
+                if (page + 1 <= onlineModels.LastPage)
+                    onlineModels.NextPage = page + 1;
+                else
+                    onlineModels.NextPage = null;
+            }
+            else if (page >= onlineModels.LastPage)
+            {
+                page = onlineModels.LastPage;
+                onlineModels.NextPage = null;
+                if (page - 1 >= 0)
+                    onlineModels.PrevPage = page - 1;
+                else
+                    onlineModels.PrevPage = null;
+            }
         }
     }
 }
