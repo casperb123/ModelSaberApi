@@ -10,6 +10,7 @@ namespace ModelSaber.Entities
     {
         private ModelType type;
         private string name;
+        private OnlineModel onlineModel;
 
         public string Name
         {
@@ -34,6 +35,18 @@ namespace ModelSaber.Entities
         public string ModelPath { get; set; }
 
         public int Page { get; set; }
+
+        public List<string> Errors { get; set; }
+
+        public OnlineModel OnlineModel
+        {
+            get { return onlineModel; }
+            set
+            {
+                onlineModel = value;
+                OnPropertyChanged(nameof(OnlineModel));
+            }
+        }
 
         public LocalModel(string fileName)
         {

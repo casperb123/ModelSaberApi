@@ -111,6 +111,143 @@ namespace ModelSaber
             }
         }
 
+        public async Task<LocalModels> GetLocalSabers(LocalModels cachedLocalModels = null)
+        {
+            LocalModels localModels = cachedLocalModels is null ? new LocalModels() : new LocalModels(cachedLocalModels);
+            List<string> sabers = Directory.GetFiles(SabersPath, "*.saber").ToList();
+
+            foreach (LocalModel model in localModels.Models.ToList())
+            {
+                string saber = sabers.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == model.Name);
+
+                if (!string.IsNullOrEmpty(saber))
+                    sabers.Remove(saber);
+            }
+
+            for (int i = 0; i < sabers.Count; i++)
+            {
+                if (i > 0 && i % 10 == 0)
+                    localModels.LastPage++;
+            }
+
+            foreach (string saberFile in sabers)
+            {
+                LocalModel model = new LocalModel(saberFile);
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        model.OnlineModel = await GetModel(model.Name, model.Type);
+                    }
+                    catch (Exception e)
+                    {
+                        if (model.Errors is null)
+                            model.Errors = new List<string>();
+
+                        if (e.InnerException is null || string.Equals(e.Message, e.InnerException.Message))
+                            model.Errors.Add(e.Message);
+                        else
+                            model.Errors.Add($"{e.Message} ({e.InnerException.Message})");
+                    }
+                });
+
+                localModels.Models.Add(model);
+            }
+
+            return RefreshLocalPages(localModels);
+        }
+
+        public LocalModels RefreshLocalPages(LocalModels localModels)
+        {
+            LocalModels newLocalModels = new LocalModels(localModels);
+            int lastPage = 0;
+
+            foreach (LocalModel localModel in newLocalModels.Models)
+            {
+                int index = newLocalModels.Models.IndexOf(localModel);
+                if (index > 0 && index % 10 == 0)
+                    lastPage++;
+
+                localModel.Page = lastPage;
+            }
+
+            newLocalModels.LastPage = lastPage;
+            if (lastPage == 0)
+            {
+                newLocalModels.NextPage = null;
+                newLocalModels.PrevPage = null;
+            }
+            else
+            {
+                if (newLocalModels.NextPage is null && newLocalModels.PrevPage is null)
+                {
+                    if (lastPage >= 1)
+                        newLocalModels.NextPage = 1;
+                }
+                else
+                {
+                    if (newLocalModels.NextPage is null)
+                    {
+                        if (newLocalModels.PrevPage < lastPage)
+                        {
+                            if (newLocalModels.PrevPage + 2 <= lastPage)
+                                newLocalModels.NextPage = newLocalModels.PrevPage + 2;
+                            else
+                                newLocalModels.PrevPage = lastPage - 1;
+                        }
+                        else
+                            newLocalModels.PrevPage = lastPage - 1;
+                    }
+                    else
+                    {
+                        if (newLocalModels.NextPage > lastPage)
+                        {
+                            newLocalModels.NextPage = null;
+                            if (lastPage - 1 >= 0)
+                                newLocalModels.PrevPage = lastPage - 1;
+                        }
+                    }
+                }
+            }
+
+            return newLocalModels;
+        }
+
+        public void ChangeLocalPage(LocalModels localModels, int page)
+        {
+            if (page >= 0 && page <= localModels.LastPage)
+            {
+                if (page == 0)
+                    localModels.PrevPage = null;
+                else
+                    localModels.PrevPage = page - 1;
+
+                if (page == localModels.LastPage)
+                    localModels.NextPage = null;
+                else
+                    localModels.NextPage = page + 1;
+            }
+            else if (page <= 0)
+            {
+                page = 0;
+                localModels.PrevPage = null;
+                if (page + 1 <= localModels.LastPage)
+                    localModels.NextPage = page + 1;
+                else
+                    localModels.NextPage = null;
+            }
+            else if (page >= localModels.LastPage)
+            {
+                page = localModels.LastPage;
+                localModels.NextPage = null;
+                if (page - 1 >= 0)
+                    localModels.PrevPage = page - 1;
+                else
+                    localModels.PrevPage = null;
+            }
+        }
+
         public OnlineModels RefreshOnlinePages(OnlineModels onlineModels)
         {
             OnlineModels newOnlineModels = new OnlineModels(onlineModels);
@@ -332,10 +469,51 @@ namespace ModelSaber
             }
         }
 
+        public void DeleteModel(LocalModel model)
+        {
+            if (File.Exists(model.ModelPath))
+                File.Delete(model.ModelPath);
+
+            LocalModelDeleted?.Invoke(this, new LocalModelDeletedEventArgs(model));
+        }
+
         public void DeleteModels(List<OnlineModel> models)
         {
             foreach (OnlineModel model in models)
                 DeleteModel(model);
+        }
+
+        public async Task<OnlineModel> GetModel(string name, ModelType modelType)
+        {
+            try
+            {
+                using (WebClient webClient = new WebClient())
+                {
+                    string projectName = Assembly.GetEntryAssembly().GetName().Name;
+                    webClient.Headers.Add(HttpRequestHeader.UserAgent, projectName);
+                    string api = $"{modelSaberApi}?type={modelType.ToString().ToLower()}&filter=name:{name}";
+                    string json = await webClient.DownloadStringTaskAsync(api);
+
+                    Dictionary<string, JToken> jsonDict = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(json);
+                    List<OnlineModel> onlineModels = new List<OnlineModel>();
+
+                    foreach (var jsonModel in jsonDict)
+                    {
+                        OnlineModel model = JsonConvert.DeserializeObject<OnlineModel>(jsonModel.Value.ToString());
+                        onlineModels.Add(model);
+                    }
+
+                    return onlineModels.FirstOrDefault(x => x.Name == name);
+                }
+            }
+            catch (WebException e)
+            {
+                throw new WebException("The model couldn't be found on ModelSaber", e.InnerException);
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
     }
 }

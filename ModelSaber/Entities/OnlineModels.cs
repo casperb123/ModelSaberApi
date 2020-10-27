@@ -11,8 +11,6 @@ namespace ModelSaber.Entities
     public class OnlineModels : INotifyPropertyChanged
     {
         private ObservableCollection<OnlineModel> models;
-        private int startIndex;
-        private int endIndex;
         private int? prevPage;
         private int? nextPage;
         private int lastPage;
@@ -86,6 +84,14 @@ namespace ModelSaber.Entities
             get { return LastPage + 1; }
         }
 
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private void OnPropertyChanged(string prop)
+        {
+            if (!string.IsNullOrWhiteSpace(prop))
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
+        }
+
         public OnlineModels()
         {
             Models = new ObservableCollection<OnlineModel>();
@@ -97,14 +103,6 @@ namespace ModelSaber.Entities
             LastPage = onlineModels.LastPage;
             PrevPage = onlineModels.PrevPage;
             NextPage = onlineModels.NextPage;
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        private void OnPropertyChanged(string prop)
-        {
-            if (!string.IsNullOrWhiteSpace(prop))
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
         }
     }
 }
