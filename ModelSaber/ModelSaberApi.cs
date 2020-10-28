@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace ModelSaber
@@ -58,7 +59,7 @@ namespace ModelSaber
             };
         }
 
-        public async Task<OnlineModels> GetOnlineSabers(Sort sort, bool descending, List<Filter> filters, int page = 0)
+        public async Task<OnlineModels> GetOnlineSabers(Sort sort, bool descending, List<Filter> filters, OnlineModels cachedOnlineModels = null)
         {
             try
             {
@@ -66,36 +67,55 @@ namespace ModelSaber
                 {
                     string projectName = Assembly.GetEntryAssembly().GetName().Name;
                     webClient.Headers.Add(HttpRequestHeader.UserAgent, projectName);
+                    int startIndex = cachedOnlineModels is null ? 0 : cachedOnlineModels.CurrentPage * 10;
+                    int endIndex = startIndex + 10;
                     string sortDirection = descending ? "desc" : "asc";
                     string filtersText = string.Join(",", filters.Select(x => $"{x.Type.ToString().ToLower()}:{x.Text}"));
                     string json = null;
+                    string apiString = $"{modelSaberApi}?type=saber&sort={sort.ToString().ToLower()}&sortDirection={sortDirection}";
 
-                    if (filters is null || filters.Count == 0)
-                        json = await webClient.DownloadStringTaskAsync($"{modelSaberApi}?type=saber&sort={sort.ToString().ToLower()}&sortDirection={sortDirection}");
-                    else
-                        json = await webClient.DownloadStringTaskAsync($"{modelSaberApi}?type=saber&sort={sort.ToString().ToLower()}&sortDirection={sortDirection}&filter={filtersText}");
+                    if (cachedOnlineModels != null)
+                        apiString += $"&start={startIndex}&end={endIndex}";
+                    if (filters != null && filters.Count > 0)
+                        apiString += $"&filter={filtersText}";
 
+                    json = await webClient.DownloadStringTaskAsync(apiString);
                     Dictionary<string, JToken> jsonDictionary = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(json);
-                    OnlineModels onlineModels = new OnlineModels();
+                    OnlineModels onlineModels;
+                    if (cachedOnlineModels is null || jsonDictionary.Count < 10 || jsonDictionary.Count > cachedOnlineModels.TotalModels)
+                    {
+                        cachedOnlineModels = null;
+                        onlineModels = new OnlineModels
+                        {
+                            TotalModels = jsonDictionary.Count
+                        };
+                    }
+                    else
+                        onlineModels = new OnlineModels(cachedOnlineModels, false);
+
                     string[] sabersDownloaded = Directory.GetFiles(SabersPath, "*.saber");
 
-                    foreach (var jsonToken in jsonDictionary)
+                    for (int i = 0; i < jsonDictionary.Count; i++)
                     {
-                        OnlineModel onlineModel = JsonConvert.DeserializeObject<OnlineModel>(jsonToken.Value.ToString());
-                        string saberPath = sabersDownloaded.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == onlineModel.Name);
-
-                        if (string.IsNullOrEmpty(saberPath))
+                        if (cachedOnlineModels != null || i >= startIndex && i < endIndex)
                         {
-                            if (Downloading.Any(x => x.Id == onlineModel.Id))
-                                onlineModel.IsDownloading = true;
-                        }
-                        else
-                        {
-                            onlineModel.IsDownloaded = true;
-                            onlineModel.ModelPath = saberPath;
-                        }
+                            JToken jsonToken = jsonDictionary.ElementAt(i).Value;
+                            OnlineModel onlineModel = JsonConvert.DeserializeObject<OnlineModel>(jsonToken.ToString());
+                            string saberPath = sabersDownloaded.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == onlineModel.Name);
 
-                        onlineModels.Models.Add(onlineModel);
+                            if (string.IsNullOrEmpty(saberPath))
+                            {
+                                if (Downloading.Any(x => x.Id == onlineModel.Id))
+                                    onlineModel.IsDownloading = true;
+                            }
+                            else
+                            {
+                                onlineModel.IsDownloaded = true;
+                                onlineModel.ModelPath = saberPath;
+                            }
+
+                            onlineModels.Models.Add(onlineModel);
+                        }
                     }
 
                     return RefreshOnlinePages(onlineModels);
@@ -105,13 +125,13 @@ namespace ModelSaber
             {
                 throw new WebException("Can't connect to ModelSaber", e.InnerException);
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 throw;
             }
         }
 
-        public async Task<LocalModels> GetLocalSabers(LocalModels cachedLocalModels = null)
+        public LocalModels GetLocalSabers(LocalModels cachedLocalModels = null)
         {
             LocalModels localModels = cachedLocalModels is null ? new LocalModels() : new LocalModels(cachedLocalModels);
             List<string> sabers = Directory.GetFiles(SabersPath, "*.saber").ToList();
@@ -133,6 +153,7 @@ namespace ModelSaber
             foreach (string saberFile in sabers)
             {
                 LocalModel model = new LocalModel(saberFile);
+                model.ModelPath = saberFile;
 
                 _ = Task.Run(async () =>
                 {
@@ -253,13 +274,10 @@ namespace ModelSaber
             OnlineModels newOnlineModels = new OnlineModels(onlineModels);
             int lastPage = 0;
 
-            foreach (OnlineModel onlineModel in newOnlineModels.Models)
+            for (int i = 0; i < onlineModels.TotalModels; i++)
             {
-                int index = newOnlineModels.Models.IndexOf(onlineModel);
-                if (index > 0 && index % 10 == 0)
+                if (i > 0 && i % 10 == 0)
                     lastPage++;
-
-                onlineModel.Page = lastPage;
             }
 
             newOnlineModels.LastPage = lastPage;
@@ -425,9 +443,11 @@ namespace ModelSaber
                     DownloadStarted?.Invoke(this, new DownloadStartedEventArgs(model));
                     await webClient.DownloadFileTaskAsync(new Uri(downloadString), downloadFilePath);
 
+                    File.Move(downloadFilePath, saberPath);
                     model.ModelPath = saberPath;
                     model.IsDownloading = false;
                     model.IsDownloaded = true;
+
                     OnlineModel downloadingModel = Downloading.FirstOrDefault(x => x.Id == model.Id);
                     if (downloadingModel != null)
                         Downloading.Remove(downloadingModel);
@@ -493,17 +513,16 @@ namespace ModelSaber
                     webClient.Headers.Add(HttpRequestHeader.UserAgent, projectName);
                     string api = $"{modelSaberApi}?type={modelType.ToString().ToLower()}&filter=name:{name}";
                     string json = await webClient.DownloadStringTaskAsync(api);
-
                     Dictionary<string, JToken> jsonDict = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(json);
-                    List<OnlineModel> onlineModels = new List<OnlineModel>();
 
                     foreach (var jsonModel in jsonDict)
                     {
                         OnlineModel model = JsonConvert.DeserializeObject<OnlineModel>(jsonModel.Value.ToString());
-                        onlineModels.Add(model);
+                        if (model.Name == name)
+                            return model;
                     }
 
-                    return onlineModels.FirstOrDefault(x => x.Name == name);
+                    return null;
                 }
             }
             catch (WebException e)

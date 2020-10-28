@@ -84,6 +84,9 @@ namespace ModelSaber.Entities
             get { return LastPage + 1; }
         }
 
+        [JsonIgnore]
+        public int TotalModels { get; set; }
+
         public event PropertyChangedEventHandler PropertyChanged;
 
         private void OnPropertyChanged(string prop)
@@ -97,12 +100,17 @@ namespace ModelSaber.Entities
             Models = new ObservableCollection<OnlineModel>();
         }
 
-        public OnlineModels(OnlineModels onlineModels)
+        public OnlineModels(OnlineModels onlineModels, bool loadModels = true)
         {
-            Models = new ObservableCollection<OnlineModel>(onlineModels.Models);
+            if (loadModels)
+                Models = new ObservableCollection<OnlineModel>(onlineModels.Models);
+            else
+                Models = new ObservableCollection<OnlineModel>();
+
             LastPage = onlineModels.LastPage;
             PrevPage = onlineModels.PrevPage;
             NextPage = onlineModels.NextPage;
+            TotalModels = onlineModels.TotalModels;
         }
     }
 }

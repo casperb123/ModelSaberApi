@@ -1,15 +1,18 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 
 namespace ModelSaber.Entities
 {
-    public class OnlineModel
+    public class OnlineModel : INotifyPropertyChanged
     {
         private string bsaber;
         private string type;
+        private bool isDownloaded;
+        private bool isDownloading;
 
         [JsonProperty("tags")]
         public List<string> Tags { get; set; }
@@ -101,15 +104,39 @@ namespace ModelSaber.Entities
         public ModelType ModelType { get; set; }
 
         [JsonIgnore]
-        public bool IsDownloading { get; set; }
+        public bool IsDownloading
+        {
+            get { return isDownloading; }
+            set
+            {
+                isDownloading = value;
+                OnPropertyChanged(nameof(IsDownloading));
+            }
+        }
 
         [JsonIgnore]
-        public bool IsDownloaded { get; set; }
+        public bool IsDownloaded
+        {
+            get { return isDownloaded; }
+            set
+            {
+                isDownloaded = value;
+                OnPropertyChanged(nameof(IsDownloaded));
+            }
+        }
 
         [JsonIgnore]
         public string ModelPath { get; set; }
 
         [JsonIgnore]
         public int Page { get; set; }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private void OnPropertyChanged(string prop)
+        {
+            if (!string.IsNullOrWhiteSpace(prop))
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
+        }
     }
 }
