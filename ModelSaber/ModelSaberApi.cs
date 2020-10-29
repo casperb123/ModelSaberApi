@@ -82,7 +82,7 @@ namespace ModelSaber
                     json = await webClient.DownloadStringTaskAsync(apiString);
                     Dictionary<string, JToken> jsonDictionary = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(json);
                     OnlineModels onlineModels;
-                    if (cachedOnlineModels is null || jsonDictionary.Count < 10 || jsonDictionary.Count > cachedOnlineModels.TotalModels)
+                    if (cachedOnlineModels is null || jsonDictionary.Count > cachedOnlineModels.TotalModels)
                     {
                         cachedOnlineModels = null;
                         onlineModels = new OnlineModels
@@ -93,29 +93,26 @@ namespace ModelSaber
                     else
                         onlineModels = new OnlineModels(cachedOnlineModels, false);
 
+                    List<JToken> jTokens = jsonDictionary.Take(10).Select(x => x.Value).ToList();
                     string[] sabersDownloaded = Directory.GetFiles(SabersPath, "*.saber");
 
-                    for (int i = 0; i < jsonDictionary.Count; i++)
+                    foreach (JToken jToken in jTokens)
                     {
-                        if (cachedOnlineModels != null || i >= startIndex && i < endIndex)
+                        OnlineModel onlineModel = JsonConvert.DeserializeObject<OnlineModel>(jToken.ToString());
+                        string saberPath = sabersDownloaded.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == onlineModel.Name);
+
+                        if (string.IsNullOrEmpty(saberPath))
                         {
-                            JToken jsonToken = jsonDictionary.ElementAt(i).Value;
-                            OnlineModel onlineModel = JsonConvert.DeserializeObject<OnlineModel>(jsonToken.ToString());
-                            string saberPath = sabersDownloaded.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == onlineModel.Name);
-
-                            if (string.IsNullOrEmpty(saberPath))
-                            {
-                                if (Downloading.Any(x => x.Id == onlineModel.Id))
-                                    onlineModel.IsDownloading = true;
-                            }
-                            else
-                            {
-                                onlineModel.IsDownloaded = true;
-                                onlineModel.ModelPath = saberPath;
-                            }
-
-                            onlineModels.Models.Add(onlineModel);
+                            if (Downloading.Any(x => x.Id == onlineModel.Id))
+                                onlineModel.IsDownloading = true;
                         }
+                        else
+                        {
+                            onlineModel.IsDownloaded = true;
+                            onlineModel.ModelPath = saberPath;
+                        }
+
+                        onlineModels.Models.Add(onlineModel);
                     }
 
                     return RefreshOnlinePages(onlineModels);
@@ -421,7 +418,7 @@ namespace ModelSaber
             string downloadFilePath = Path.Combine(downloadPath, $"{model.Id}{extension}");
             string downloadString = model.Download;
             string saberPath = Path.Combine(filePath, $"{model.Name}{extension}");
-            
+
             if (File.Exists(saberPath))
             {
                 DownloadFailed?.Invoke(this, new DownloadFailedEventArgs(model, new InvalidOperationException("The saber is already downloaded")));

@@ -91,7 +91,10 @@ namespace ModelSaber.Entities
         [JsonIgnore]
         public string RealThumbnail
         {
-            get { return $"https://modelsaber.com/files/saber/{Id}/{Thumbnail}"; }
+            get
+            {
+                return Thumbnail.Contains("https://modelsaber.com/files/") ? Thumbnail : $"https://modelsaber.com/files/saber/{Id}/{Thumbnail}";
+            }
         }
 
         [JsonIgnore]
