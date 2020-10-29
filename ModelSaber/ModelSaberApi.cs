@@ -59,7 +59,7 @@ namespace ModelSaber
             };
         }
 
-        public async Task<OnlineModels> GetOnlineSabers(Sort sort, bool descending, List<Filter> filters, OnlineModels cachedOnlineModels = null)
+        public async Task<OnlineModels> GetOnlineModels(ModelType modelType, Sort sort, bool descending, List<Filter> filters, OnlineModels cachedOnlineModels = null)
         {
             try
             {
@@ -72,7 +72,7 @@ namespace ModelSaber
                     string sortDirection = descending ? "desc" : "asc";
                     string filtersText = string.Join(",", filters.Select(x => $"{x.Type.ToString().ToLower()}:{x.Text}"));
                     string json = null;
-                    string apiString = $"{modelSaberApi}?type=saber&sort={sort.ToString().ToLower()}&sortDirection={sortDirection}";
+                    string apiString = $"{modelSaberApi}?type={modelType.ToString().ToLower()}&sort={sort.ToString().ToLower()}&sortDirection={sortDirection}";
 
                     if (cachedOnlineModels != null)
                         apiString += $"&start={startIndex}&end={endIndex}";
@@ -94,14 +94,38 @@ namespace ModelSaber
                         onlineModels = new OnlineModels(cachedOnlineModels, false);
 
                     List<JToken> jTokens = jsonDictionary.Take(10).Select(x => x.Value).ToList();
-                    string[] sabersDownloaded = Directory.GetFiles(SabersPath, "*.saber");
+                    string extension = null;
+                    string filesPath = null;
+                    switch (modelType)
+                    {
+                        case ModelType.None:
+                            break;
+                        case ModelType.Saber:
+                            extension = ".saber";
+                            filesPath = SabersPath;
+                            break;
+                        case ModelType.Avatar:
+                            extension = ".avatar";
+                            filesPath = AvatarsPath;
+                            break;
+                        case ModelType.Platform:
+                            extension = ".plat";
+                            break;
+                        case ModelType.Bloq:
+                            extension = ".bloq";
+                            break;
+                        default:
+                            break;
+                    }
+
+                    string[] modelsDownloaded = Directory.GetFiles(filesPath, $"*{extension}");
 
                     foreach (JToken jToken in jTokens)
                     {
                         OnlineModel onlineModel = JsonConvert.DeserializeObject<OnlineModel>(jToken.ToString());
-                        string saberPath = sabersDownloaded.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == onlineModel.Name);
+                        string filePath = modelsDownloaded.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == onlineModel.Name);
 
-                        if (string.IsNullOrEmpty(saberPath))
+                        if (string.IsNullOrEmpty(filePath))
                         {
                             if (Downloading.Any(x => x.Id == onlineModel.Id))
                                 onlineModel.IsDownloading = true;
@@ -109,7 +133,7 @@ namespace ModelSaber
                         else
                         {
                             onlineModel.IsDownloaded = true;
-                            onlineModel.ModelPath = saberPath;
+                            onlineModel.ModelPath = filePath;
                         }
 
                         onlineModels.Models.Add(onlineModel);
@@ -128,29 +152,54 @@ namespace ModelSaber
             }
         }
 
-        public LocalModels GetLocalSabers(LocalModels cachedLocalModels = null)
+        public LocalModels GetLocalModels(ModelType modelType, LocalModels cachedLocalModels = null)
         {
             LocalModels localModels = cachedLocalModels is null ? new LocalModels() : new LocalModels(cachedLocalModels);
-            List<string> sabers = Directory.GetFiles(SabersPath, "*.saber").ToList();
+            string extension = null;
+            string filesPath = null;
+            switch (modelType)
+            {
+                case ModelType.None:
+                    break;
+                case ModelType.Saber:
+                    extension = ".saber";
+                    filesPath = SabersPath;
+                    break;
+                case ModelType.Avatar:
+                    extension = ".avatar";
+                    filesPath = AvatarsPath;
+                    break;
+                case ModelType.Platform:
+                    extension = ".plat";
+                    break;
+                case ModelType.Bloq:
+                    extension = ".bloq";
+                    break;
+                default:
+                    break;
+            }
+            List<string> models = Directory.GetFiles(filesPath, $"*{extension}").ToList();
 
             foreach (LocalModel model in localModels.Models.ToList())
             {
-                string saber = sabers.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == model.Name);
+                string filePath = models.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == model.Name);
 
-                if (!string.IsNullOrEmpty(saber))
-                    sabers.Remove(saber);
+                if (!string.IsNullOrEmpty(filePath))
+                    models.Remove(filePath);
             }
 
-            for (int i = 0; i < sabers.Count; i++)
+            for (int i = 0; i < models.Count; i++)
             {
                 if (i > 0 && i % 10 == 0)
                     localModels.LastPage++;
             }
 
-            foreach (string saberFile in sabers)
+            foreach (string modelFile in models)
             {
-                LocalModel model = new LocalModel(saberFile);
-                model.ModelPath = saberFile;
+                LocalModel model = new LocalModel(modelFile)
+                {
+                    ModelPath = modelFile
+                };
 
                 _ = Task.Run(async () =>
                 {
