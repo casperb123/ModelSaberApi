@@ -205,7 +205,7 @@ namespace ModelSaber
                 {
                     try
                     {
-                        model.OnlineModel = await GetModel(model.Name, model.Type);
+                        model.OnlineModel = await GetModel(model.Name, model.ModelType);
                     }
                     catch (Exception e)
                     {

@@ -8,7 +8,7 @@ namespace ModelSaber.Entities
 {
     public class LocalModel : INotifyPropertyChanged
     {
-        private ModelType type;
+        private ModelType modelType;
         private string name;
         private OnlineModel onlineModel;
 
@@ -22,13 +22,13 @@ namespace ModelSaber.Entities
             }
         }
 
-        public ModelType Type
+        public ModelType ModelType
         {
-            get { return type; }
+            get { return modelType; }
             set
             {
-                type = value;
-                OnPropertyChanged(nameof(Type));
+                modelType = value;
+                OnPropertyChanged(nameof(ModelType));
             }
         }
 
@@ -54,13 +54,13 @@ namespace ModelSaber.Entities
 
             Name = Path.GetFileNameWithoutExtension(fileName);
             if (extension == ".saber")
-                Type = ModelType.Saber;
+                ModelType = ModelType.Saber;
             else if (extension == ".avatar")
-                Type = ModelType.Avatar;
+                ModelType = ModelType.Avatar;
             else if (extension == ".plat")
-                Type = ModelType.Platform;
+                ModelType = ModelType.Platform;
             else if (extension == ".bloq")
-                Type = ModelType.Bloq;
+                ModelType = ModelType.Bloq;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
