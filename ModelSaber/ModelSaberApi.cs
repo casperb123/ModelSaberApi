@@ -9,7 +9,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace ModelSaber
@@ -435,7 +434,7 @@ namespace ModelSaber
             DownloadProgressed?.Invoke(this, new DownloadProgressedEventArgs(model, e.BytesReceived, e.TotalBytesToReceive, e.ProgressPercentage, timeLeftString, timeSpentString, received, toReceive));
         }
 
-        public async Task<bool> DownloadModel(OnlineModel model, ModelType modelType)
+        public async Task<bool> DownloadModel(OnlineModel model)
         {
             string modelName = model.Name;
 
@@ -444,7 +443,7 @@ namespace ModelSaber
 
             string extension = null;
             string filePath = null;
-            switch (modelType)
+            switch (model.ModelType)
             {
                 case ModelType.Saber:
                     extension = ".saber";
@@ -488,8 +487,18 @@ namespace ModelSaber
 
                     DownloadStarted?.Invoke(this, new DownloadStartedEventArgs(model));
                     await webClient.DownloadFileTaskAsync(new Uri(downloadString), downloadFilePath);
+                    await Task.Run(() =>
+                    {
+                        try
+                        {
+                            File.Move(downloadFilePath, saberPath);
+                        }
+                        catch (Exception)
+                        {
+                            throw;
+                        }
+                    });
 
-                    File.Move(downloadFilePath, saberPath);
                     model.ModelPath = saberPath;
                     model.IsDownloading = false;
                     model.IsDownloaded = true;
