@@ -131,7 +131,21 @@ namespace ModelSaber
                     foreach (JToken jToken in jTokens)
                     {
                         OnlineModel onlineModel = JsonConvert.DeserializeObject<OnlineModel>(jToken.ToString());
-                        string filePath = modelsDownloaded.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == onlineModel.Name);
+                        string filePath = null;
+                        foreach (string downloadedModel in modelsDownloaded)
+                        {
+                            string[] modelNames = Path.GetFileNameWithoutExtension(downloadedModel).Split(" ", 2);
+                            if (modelNames.Length == 1)
+                            {
+                                if (modelNames[0] == onlineModel.Name)
+                                    filePath = downloadedModel;
+                            }
+                            else if (int.TryParse(modelNames[0], out int id))
+                            {
+                                if (onlineModel.Id == id)
+                                    filePath = downloadedModel;
+                            }
+                        }
 
                         if (string.IsNullOrEmpty(filePath))
                         {
@@ -192,7 +206,21 @@ namespace ModelSaber
 
             foreach (LocalModel model in localModels.Models.ToList())
             {
-                string filePath = models.FirstOrDefault(x => Path.GetFileNameWithoutExtension(x) == model.Name);
+                string filePath = null;
+                foreach (string modelPath in models)
+                {
+                    string[] modelFileName = Path.GetFileNameWithoutExtension(modelPath).Split(" ", 2);
+                    if (modelFileName.Length == 1)
+                    {
+                        if (modelFileName[0] == model.Name)
+                            filePath = modelFileName[0];
+                    }
+                    else if (int.TryParse(modelFileName[0], out _))
+                    {
+                        if (modelFileName[1] == model.Name)
+                            filePath = modelFileName[1];
+                    }
+                }
 
                 if (!string.IsNullOrEmpty(filePath))
                     models.Remove(filePath);
@@ -215,7 +243,7 @@ namespace ModelSaber
                 {
                     try
                     {
-                        model.OnlineModel = await GetModel(model.Name, model.ModelType);
+                        model.OnlineModel = await GetModel(model, model.ModelType);
                     }
                     catch (Exception e)
                     {
@@ -476,7 +504,7 @@ namespace ModelSaber
 
             string downloadFilePath = Path.Combine(downloadPath, $"{model.Id}{extension}");
             string downloadString = model.Download;
-            string modelPath = Path.Combine(filePath, $"{model.Name}{extension}");
+            string modelPath = Path.Combine(filePath, $"{model.Id} {model.Name}{extension}");
 
             if (File.Exists(modelPath))
             {
@@ -569,7 +597,7 @@ namespace ModelSaber
                 DeleteModel(model);
         }
 
-        public async Task<OnlineModel> GetModel(string name, ModelType modelType)
+        public async Task<OnlineModel> GetModel(LocalModel model, ModelType modelType)
         {
             try
             {
@@ -577,15 +605,20 @@ namespace ModelSaber
                 {
                     string projectName = Assembly.GetEntryAssembly().GetName().Name;
                     webClient.Headers.Add(HttpRequestHeader.UserAgent, projectName);
-                    string api = $"{modelSaberApi}?type={modelType.ToString().ToLower()}&filter=name:{name}";
+                    string api = $"{modelSaberApi}?type={modelType.ToString().ToLower()}";
+                    if (model.Id == -1)
+                        api += $"&filter=name:{model.Name}";
+                    else
+                        api += $"&filter=id:{model.Id}";
+
                     string json = await webClient.DownloadStringTaskAsync(api);
                     Dictionary<string, JToken> jsonDict = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(json);
 
                     foreach (var jsonModel in jsonDict)
                     {
-                        OnlineModel model = JsonConvert.DeserializeObject<OnlineModel>(jsonModel.Value.ToString());
-                        if (model.Name == name)
-                            return model;
+                        OnlineModel onlineModel = JsonConvert.DeserializeObject<OnlineModel>(jsonModel.Value.ToString());
+                        if (onlineModel.Id == model.Id || onlineModel.Name == model.Name)
+                            return onlineModel;
                     }
 
                     return null;

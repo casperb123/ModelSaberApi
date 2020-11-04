@@ -90,7 +90,7 @@ namespace ModelSaber.Entities
 
         public LocalModels(LocalModels localModels)
         {
-            Models = new ObservableCollection<LocalModel>(localModels.Models);
+            Models = new ObservableCollection<LocalModel>(localModels.Models.ToList());
         }
     }
 }
