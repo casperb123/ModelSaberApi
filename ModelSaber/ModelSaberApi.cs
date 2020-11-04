@@ -22,6 +22,8 @@ namespace ModelSaber
 
         public string SabersPath { get; set; }
         public string AvatarsPath { get; set; }
+        public string PlatformsPath { get; set; }
+        public string BloqsPath { get; set; }
         public List<OnlineModel> Downloading { get; set; }
 
         public event EventHandler<DownloadStartedEventArgs> DownloadStarted;
@@ -37,13 +39,18 @@ namespace ModelSaber
             modelSaberApi = $"{modelSaber}/api/v2/get.php";
             SabersPath = Path.Combine(beatSaberPath, "CustomSabers");
             AvatarsPath = Path.Combine(beatSaberPath, "CustomAvatars");
+            PlatformsPath = Path.Combine(beatSaberPath, "CustomPlatforms");
+            BloqsPath = Path.Combine(beatSaberPath, "CustomNotes");
             Downloading = new List<OnlineModel>();
 
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             downloadPath = Path.Combine(appData, "ModelSaberApi");
 
-            if (!Directory.Exists(downloadPath))
-                Directory.CreateDirectory(downloadPath);
+            Directory.CreateDirectory(downloadPath);
+            Directory.CreateDirectory(SabersPath);
+            Directory.CreateDirectory(AvatarsPath);
+            Directory.CreateDirectory(PlatformsPath);
+            Directory.CreateDirectory(BloqsPath);
 
             excludedCharacters = new string[]
             {
@@ -109,9 +116,11 @@ namespace ModelSaber
                             break;
                         case ModelType.Platform:
                             extension = ".plat";
+                            filesPath = PlatformsPath;
                             break;
                         case ModelType.Bloq:
                             extension = ".bloq";
+                            filesPath = BloqsPath;
                             break;
                         default:
                             break;
@@ -170,9 +179,11 @@ namespace ModelSaber
                     break;
                 case ModelType.Platform:
                     extension = ".plat";
+                    filesPath = PlatformsPath;
                     break;
                 case ModelType.Bloq:
                     extension = ".bloq";
+                    filesPath = BloqsPath;
                     break;
                 default:
                     break;
@@ -465,11 +476,11 @@ namespace ModelSaber
 
             string downloadFilePath = Path.Combine(downloadPath, $"{model.Id}{extension}");
             string downloadString = model.Download;
-            string saberPath = Path.Combine(filePath, $"{model.Name}{extension}");
+            string modelPath = Path.Combine(filePath, $"{model.Name}{extension}");
 
-            if (File.Exists(saberPath))
+            if (File.Exists(modelPath))
             {
-                DownloadFailed?.Invoke(this, new DownloadFailedEventArgs(model, new InvalidOperationException("The saber is already downloaded")));
+                DownloadFailed?.Invoke(this, new DownloadFailedEventArgs(model, new InvalidOperationException($"The {model.ModelType.ToString().ToLower()} is already downloaded")));
                 return false;
             }
 
@@ -491,7 +502,7 @@ namespace ModelSaber
                     {
                         try
                         {
-                            File.Move(downloadFilePath, saberPath);
+                            File.Move(downloadFilePath, modelPath);
                         }
                         catch (Exception)
                         {
@@ -499,7 +510,7 @@ namespace ModelSaber
                         }
                     });
 
-                    model.ModelPath = saberPath;
+                    model.ModelPath = modelPath;
                     model.IsDownloading = false;
                     model.IsDownloaded = true;
 

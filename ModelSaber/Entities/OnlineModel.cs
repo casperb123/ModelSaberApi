@@ -93,7 +93,7 @@ namespace ModelSaber.Entities
         {
             get
             {
-                return Thumbnail.Contains("https://modelsaber.com/files/") ? Thumbnail : $"https://modelsaber.com/files/saber/{Id}/{Thumbnail}";
+                return Thumbnail.Contains("https://modelsaber.com/files/") ? Thumbnail : $"https://modelsaber.com/files/{Type}/{Id}/{Thumbnail}";
             }
         }
 
