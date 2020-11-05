@@ -213,12 +213,12 @@ namespace ModelSaber
                     if (modelFileName.Length == 1)
                     {
                         if (modelFileName[0] == model.Name)
-                            filePath = modelFileName[0];
+                            filePath = modelPath;
                     }
                     else if (int.TryParse(modelFileName[0], out _))
                     {
                         if (modelFileName[1] == model.Name)
-                            filePath = modelFileName[1];
+                            filePath = modelPath;
                     }
                 }
 
