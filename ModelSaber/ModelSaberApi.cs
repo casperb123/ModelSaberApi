@@ -494,9 +494,11 @@ namespace ModelSaber
                     break;
                 case ModelType.Platform:
                     extension = ".plat";
+                    filePath = PlatformsPath;
                     break;
                 case ModelType.Bloq:
                     extension = ".bloq";
+                    filePath = BloqsPath;
                     break;
                 default:
                     break;
@@ -504,7 +506,7 @@ namespace ModelSaber
 
             string downloadFilePath = Path.Combine(downloadPath, $"{model.Id}{extension}");
             string downloadString = model.Download;
-            string modelPath = Path.Combine(filePath, $"{model.Id} {model.Name}{extension}");
+            string modelPath = Path.Combine(filePath, $"{model.Id} {modelName}{extension}");
 
             if (File.Exists(modelPath))
             {
