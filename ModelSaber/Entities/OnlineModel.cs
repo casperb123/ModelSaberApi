@@ -61,7 +61,11 @@ namespace ModelSaber.Entities
                 else
                     return bsaber;
             }
-            set { bsaber = value; }
+            set
+            {
+                bsaber = value;
+                OnPropertyChanged(nameof(Bsaber));
+            }
         }
 
         [JsonProperty("status")]

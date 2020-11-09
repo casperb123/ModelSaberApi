@@ -628,7 +628,7 @@ namespace ModelSaber
             }
             catch (WebException e)
             {
-                throw new WebException("The model couldn't be found on ModelSaber", e.InnerException);
+                throw new WebException($"The {model.ModelType.ToString().ToLower()} couldn't be found on ModelSaber", e.InnerException);
             }
             catch (Exception)
             {
