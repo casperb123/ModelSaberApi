@@ -635,5 +635,38 @@ namespace ModelSaber
                 throw;
             }
         }
+
+        public async Task<OnlineModel> GetModel(int id, ModelType modelType)
+        {
+            try
+            {
+                using (WebClient webClient = new WebClient())
+                {
+                    string projectName = Assembly.GetEntryAssembly().GetName().Name;
+                    webClient.Headers.Add(HttpRequestHeader.UserAgent, projectName);
+                    string api = $"{modelSaberApi}?type={modelType.ToString().ToLower()}&filter=id:{id}";
+
+                    string json = await webClient.DownloadStringTaskAsync(api);
+                    Dictionary<string, JToken> jsonDict = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(json);
+
+                    foreach (var jsonModel in jsonDict)
+                    {
+                        OnlineModel onlineModel = JsonConvert.DeserializeObject<OnlineModel>(jsonModel.Value.ToString());
+                        if (onlineModel.Id == id)
+                            return onlineModel;
+                    }
+
+                    return null;
+                }
+            }
+            catch (WebException e)
+            {
+                throw new WebException($"The {modelType.ToString().ToLower()} couldn't be found on ModelSaber", e.InnerException);
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
     }
 }

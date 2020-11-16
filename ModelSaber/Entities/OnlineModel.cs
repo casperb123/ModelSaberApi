@@ -63,7 +63,11 @@ namespace ModelSaber.Entities
             }
             set
             {
-                bsaber = value;
+                if (value != null && value.Contains("https://bsaber.com/members/"))
+                    bsaber = value.Substring(17).Replace("/", "");
+                else
+                    bsaber = value;
+
                 OnPropertyChanged(nameof(Bsaber));
             }
         }
@@ -98,6 +102,15 @@ namespace ModelSaber.Entities
             get
             {
                 return Thumbnail.Contains("https://modelsaber.com/files/") ? Thumbnail : $"https://modelsaber.com/files/{Type}/{Id}/{Thumbnail}";
+            }
+        }
+
+        [JsonIgnore]
+        public string BsaberLink
+        {
+            get
+            {
+                return Bsaber is null ? null : $"https://bsaber.com/members/{Bsaber.ToLower()}";
             }
         }
 
